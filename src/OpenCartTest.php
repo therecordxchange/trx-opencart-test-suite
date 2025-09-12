@@ -70,7 +70,7 @@ abstract class OpenCartTest extends TestCase
             // Assume first part is the directory, rest form the filename
             $directory = $parts[0];
             $filename = implode('_', array_slice($parts, 1));
-            return $directory . '/' . $filename . '.php';
+            return $directory . '/' . $filename;
         }
 
         return $path;
@@ -132,8 +132,13 @@ abstract class OpenCartTest extends TestCase
             $controllerPath = $this->convertClassNameToPath($controllerPath);
         }
 
+        // Ensure exactly one .php extension
+        $controllerPath = rtrim($controllerPath, '.php') . '.php';
+
         // Try different base paths
         $basePaths = [
+            APP_ROOT . 'catalog/controller/',
+            APP_ROOT . 'admin/controller/',
             '/var/www/trx-enterprise-php/htdocs/catalog/controller/',
             '/var/www/trx-enterprise-php/htdocs/admin/controller/',
             DIR_APPLICATION . 'controller/',
@@ -149,8 +154,8 @@ abstract class OpenCartTest extends TestCase
             }
         }
 
-        // If auto-detection fails, log it but don't fail the test
-        error_log("Coverage: Could not find controller file for path: {$controllerPath}");
+    // Log for debugging but don't throw exception to avoid breaking coverage
+    error_log("Coverage: Could not find controller file for path: {$controllerPath}");
     }
 
     /**

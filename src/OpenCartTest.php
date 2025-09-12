@@ -25,10 +25,10 @@ abstract class OpenCartTest extends TestCase
         // Load controller files for coverage tracking
         $this->loadControllersForCoverage();
 
-        // Check if the test class uses DatabaseTransactions
-        if (in_array(DatabaseTransactions::class, class_uses($this))) {
-            $this->startTransactions();
-        }
+        // // Check if the test class uses DatabaseTransactions
+        // if (in_array(DatabaseTransactions::class, class_uses($this))) {
+        //     $this->startTransactions();
+        // }
     }
 
     /**
@@ -62,8 +62,8 @@ abstract class OpenCartTest extends TestCase
         $path = trim($path, '_');
         $path = strtolower($path);
 
-        // Ensure exactly one .php extension
-        $path = rtrim($path, '.php') . '.php';
+        // Remove .php if present, then add it back
+        $path = preg_replace('/\.php$/', '', $path) . '.php';
 
         // Convert underscores to directory separators for major sections
         // This is a heuristic - you might need to adjust based on your naming conventions
@@ -134,9 +134,8 @@ abstract class OpenCartTest extends TestCase
         if ($convertPath) {
             $controllerPath = $this->convertClassNameToPath($controllerPath);
         }
-
-        // Ensure exactly one .php extension
-        $controllerPath = rtrim($controllerPath, '.php') . '.php';
+        // Remove .php if present, then add it back
+        $controllerPath = preg_replace('/\.php$/', '', $controllerPath) . '.php';
 
         // Try different base paths
         $basePaths = [
@@ -171,10 +170,10 @@ abstract class OpenCartTest extends TestCase
 
     protected function tearDown(): void
     {
-        // Check if the test class uses DatabaseTransactions
-        if (in_array(DatabaseTransactions::class, class_uses($this))) {
-            $this->rollbackTransactions();
-        }
+        // // Check if the test class uses DatabaseTransactions
+        // if (in_array(DatabaseTransactions::class, class_uses($this))) {
+        //     $this->rollbackTransactions();
+        // }
 
         parent::tearDown();
     }

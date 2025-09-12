@@ -70,7 +70,7 @@ abstract class OpenCartTest extends TestCase
             // Assume first part is the directory, rest form the filename
             $directory = $parts[0];
             $filename = implode('_', array_slice($parts, 1));
-            return $directory . '/' . $filename;
+            return $directory . '/' . $filename . '.php';
         }
 
         return $path;
@@ -137,6 +137,7 @@ abstract class OpenCartTest extends TestCase
             '/var/www/trx-enterprise-php/htdocs/catalog/controller/',
             '/var/www/trx-enterprise-php/htdocs/admin/controller/',
             DIR_APPLICATION . 'controller/',
+            DIR_ROOT,
         ];
 
         foreach ($basePaths as $basePath) {

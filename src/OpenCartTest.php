@@ -62,6 +62,9 @@ abstract class OpenCartTest extends TestCase
         $path = trim($path, '_');
         $path = strtolower($path);
 
+        // Ensure exactly one .php extension
+        $path = rtrim($path, '.php') . '.php';
+
         // Convert underscores to directory separators for major sections
         // This is a heuristic - you might need to adjust based on your naming conventions
         $parts = explode('_', $path);
@@ -154,8 +157,8 @@ abstract class OpenCartTest extends TestCase
             }
         }
 
-    // Log for debugging but don't throw exception to avoid breaking coverage
-    error_log("Coverage: Could not find controller file for path: {$controllerPath}");
+        // Log for debugging but don't throw exception to avoid breaking coverage
+        error_log("Coverage: Could not find controller file for path: {$controllerPath}");
     }
 
     /**

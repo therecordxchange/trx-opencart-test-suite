@@ -57,7 +57,11 @@ abstract class OpenCartTest extends TestCase
      */
     protected function convertClassNameToPath(string $className): string
     {
-        // Convert CamelCase to snake_case with directory separators
+        // Remove 'Controller' prefix and 'Test' suffix if present
+        $className = preg_replace('/^Controller/', '', $className);
+        $className = preg_replace('/Test$/', '', $className);
+
+        // Convert CamelCase to snake_case
         $path = preg_replace('/([A-Z])/', '_$1', $className);
         $path = trim($path, '_');
         $path = strtolower($path);
@@ -65,12 +69,10 @@ abstract class OpenCartTest extends TestCase
         // Remove .php if present, then add it back
         $path = preg_replace('/\.php$/', '', $path) . '.php';
 
-        // Convert underscores to directory separators for major sections
-        // This is a heuristic - you might need to adjust based on your naming conventions
+        // OpenCart's directory structure: first part is always directory
         $parts = explode('_', $path);
 
         if (count($parts) >= 2) {
-            // Assume first part is the directory, rest form the filename
             $directory = $parts[0];
             $filename = implode('_', array_slice($parts, 1));
             return $directory . '/' . $filename;
@@ -78,7 +80,6 @@ abstract class OpenCartTest extends TestCase
 
         return $path;
     }
-
     /**
      * Load controller file from test path detection
      */

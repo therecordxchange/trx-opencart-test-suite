@@ -8,20 +8,36 @@ abstract class OpenCartTest extends TestCase
 {
     use \ControllerLoadingTrait;
 
-    protected $registry;
+    // TRX-3869: $registry is now accessed via __get() to enable lazy initialization.
+    // This prevents "Too many connections" errors during PHPUnit test discovery.
+    // DO NOT declare $registry as a property - it must go through __get().
+    private $_registry = null;
+    
     protected $front;
     protected static $tablesCreated = false;
+    
+    /**
+     * Flag to track if init() has been called for this test instance.
+     * Prevents multiple initializations and allows lazy-loading.
+     */
+    private bool $_initialized = false;
 
     public function __construct(string $name = '')
     {
         parent::__construct($name);
 
-        $this->init();
+        // TRX-3869: Moved init() call to lazy initialization.
+        // PHPUnit instantiates all test objects during discovery, which was creating
+        // 181+ DB connections before any tests ran, exhausting MySQL's max_connections.
+        // Now DB connections are only created when tests actually run (via __get).
     }
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Lazy-initialize OpenCart environment on first setUp() call
+        $this->_ensureInitialized();
 
         // Load controller files for coverage tracking
         $this->loadControllersForCoverage();
@@ -30,6 +46,19 @@ abstract class OpenCartTest extends TestCase
         // if (in_array(DatabaseTransactions::class, class_uses($this))) {
         //     $this->startTransactions();
         // }
+    }
+    
+    /**
+     * Ensure the OpenCart environment is initialized.
+     * Can be called multiple times safely - only initializes once.
+     */
+    protected function _ensureInitialized(): void
+    {
+        if (!$this->_initialized) {
+            // Set flag BEFORE init() to prevent recursion when init() uses $this->request etc.
+            $this->_initialized = true;
+            $this->init();
+        }
     }
 
     protected function tearDown(): void
@@ -55,8 +84,8 @@ abstract class OpenCartTest extends TestCase
         }
 
         // OpenCart DB Transaction
-        if ($this->registry && $this->registry->get('db')) {
-            $this->db = $this->registry->get('db');
+        if ($this->_registry && $this->_registry->get('db')) {
+            $this->db = $this->_registry->get('db');
             $this->db->begin();
         }
 
@@ -103,12 +132,30 @@ abstract class OpenCartTest extends TestCase
 
     public function __get($key)
     {
-        return $this->registry->get($key);
+        // Handle direct access to $this->registry
+        if ($key === 'registry') {
+            $this->_ensureInitialized();
+            return $this->_registry;
+        }
+        
+        // Lazy-initialize if accessing registry before setUp() is called
+        // This maintains backward compatibility with tests that access
+        // registry properties in their setUp() before calling parent::setUp()
+        $this->_ensureInitialized();
+        return $this->_registry->get($key);
     }
 
     public function __set($key, $value)
     {
-        $this->registry->set($key, $value);
+        // Handle direct assignment to $this->registry
+        if ($key === 'registry') {
+            $this->_registry = $value;
+            return;
+        }
+        
+        // Lazy-initialize if setting registry before setUp() is called
+        $this->_ensureInitialized();
+        $this->_registry->set($key, $value);
     }
 
     public function loadConfiguration()
@@ -155,23 +202,23 @@ abstract class OpenCartTest extends TestCase
         }
 
         // Registry
-        $this->registry = new Registry();
+        $this->_registry = new Registry();
 
         // Loader
-        $loader = new Loader($this->registry);
-        $this->registry->set('load', $loader);
+        $loader = new Loader($this->_registry);
+        $this->_registry->set('load', $loader);
 
         // Config
         $config = new Config();
-        $this->registry->set('config', $config);
+        $this->_registry->set('config', $config);
 
         //Template Resolver
-        $this->registry->set('template_resolver', new Template_Resolver($this->registry));
+        $this->_registry->set('template_resolver', new Template_Resolver($this->_registry));
 
         // Database
         $db = new DB(DB_DRIVER, DB_HOSTNAME, DB_USERNAME, DB_PASSWORD, DB_DATABASE);
         $this->db = $db;
-        $this->registry->set('db', $db);
+        $this->_registry->set('db', $db);
 
         // Recreating the database
         if (!self::$tablesCreated) {
@@ -237,35 +284,35 @@ abstract class OpenCartTest extends TestCase
 
         // Url
         $url = new Url($config->get('config_url'), $config->get('config_secure') ? $config->get('config_ssl') : $config->get('config_url'));
-        $this->registry->set('url', $url);
+        $this->_registry->set('url', $url);
 
         // Request
         $request = new Request();
-        $this->registry->set('request', $request);
+        $this->_registry->set('request', $request);
 
         // Response - Using Test Response - Redirects are disabled.
         $response = new TestResponse();
 
         $response->addHeader('Content-Type: text/html; charset=utf-8');
         $response->setCompression($config->get('config_compression'));
-        $this->registry->set('response', $response);
+        $this->_registry->set('response', $response);
 
         // Cache
         $cache = new Cache('file', -1);
-        $this->registry->set('cache', $cache);
+        $this->_registry->set('cache', $cache);
 
         // Session
         $session = new Session();
-        $this->registry->set('session', $session);
+        $this->_registry->set('session', $session);
 
         // TRX Custom - filemanager provider
-        $filemanager = new TrxFileManager($this->registry);
-        $this->registry->set('filemanager', $filemanager);
+        $filemanager = new TrxFileManager($this->_registry);
+        $this->_registry->set('filemanager', $filemanager);
 
         // TRX Custom - FeatureFlag service (if available)
         if (class_exists('\\trx\\Services\\FeatureFlag')) {
             $featureFlag = new FeatureFlag();
-            $this->registry->set('featureFlag', $featureFlag);
+            $this->_registry->set('featureFlag', $featureFlag);
         }
 
         // Language Detection
@@ -322,44 +369,44 @@ abstract class OpenCartTest extends TestCase
         //$language->load($languages[$code]['filename']);
         $language->load($languages[$code]['directory']);
 
-        $this->registry->set('language', $language);
+        $this->_registry->set('language', $language);
 
         // Document
-        $this->registry->set('document', new Document());
+        $this->_registry->set('document', new Document());
 
         // Affiliate
-        $this->registry->set('affiliate', new Affiliate($this->registry));
+        $this->_registry->set('affiliate', new Affiliate($this->_registry));
 
         if (isset($request->get['tracking'])) {
             setcookie('tracking', $request->get['tracking'], time() + 3600 * 24 * 1000, '/');
         }
 
         // Currency
-        $this->registry->set('currency', new Currency($this->registry));
+        $this->_registry->set('currency', new Currency($this->_registry));
 
         // Tax
-        $this->registry->set('tax', new Tax($this->registry));
+        $this->_registry->set('tax', new Tax($this->_registry));
 
         // Weight
-        $this->registry->set('weight', new Weight($this->registry));
+        $this->_registry->set('weight', new Weight($this->_registry));
 
         // Length
-        $this->registry->set('length', new Length($this->registry));
+        $this->_registry->set('length', new Length($this->_registry));
 
         // Event
-        $this->registry->set('event', new Event($this->registry));
+        $this->_registry->set('event', new Event($this->_registry));
 
         // Mail
-        $this->registry->set('mail', new TestMail($this->registry));
+        $this->_registry->set('mail', new TestMail($this->_registry));
 
         // Encryption
-        $this->registry->set('encryption', new Encryption($config->get('config_encryption')));
+        $this->_registry->set('encryption', new Encryption($config->get('config_encryption')));
 
         // Log
-        $this->registry->set('log', new Log($config->get('config_error_filename')));
+        $this->_registry->set('log', new Log($config->get('config_error_filename')));
 
         // Front Controller
-        $this->front = new Front($this->registry);
+        $this->front = new Front($this->_registry);
 
         //Codeigniter Helpers
         foreach (glob(DIR_SYSTEM . "helper/*_helper.php") as $filename) {
@@ -372,15 +419,15 @@ abstract class OpenCartTest extends TestCase
             $this->request->get['token'] = 'token';
             $this->session->data['token'] = 'token';
 
-            $user = new User($this->registry);
-            $this->registry->set('user', $user);
+            $user = new User($this->_registry);
+            $this->_registry->set('user', $user);
             $user->login(ADMIN_USERNAME, ADMIN_PASSWORD);
 
             $this->front->addPreAction(new Action('common/login/check'));
             $this->front->addPreAction(new Action('error/permission/check'));
         } else {
-            $this->registry->set('cart', new Cart($this->registry));
-            $this->registry->set('customer', new Customer($this->registry));
+            $this->_registry->set('cart', new Cart($this->_registry));
+            $this->_registry->set('customer', new Customer($this->_registry));
 
             $this->front->addPreAction(new Action('common/seo_url'));
         }
@@ -429,9 +476,9 @@ abstract class OpenCartTest extends TestCase
         }
 
         // Set request:
-        $request = $this->registry->get('request');
+        $request = $this->_registry->get('request');
         $request->get['route'] = $route;
-        $this->registry->set('request', $request);
+        $this->_registry->set('request', $request);
 
         // Dispatch
         $this->front->dispatch($action, new Action('error/not_found'));

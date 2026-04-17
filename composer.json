@@ -13,9 +13,6 @@
     "autoload": {
         "classmap": [
             "src/"
-        ],
-        "files": [
-            "src/db_prefix_guard.php"
         ]
     },
     "require-dev": {

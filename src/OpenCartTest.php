@@ -51,6 +51,9 @@ abstract class OpenCartTest extends TestCase
     /**
      * Ensure the OpenCart environment is initialized.
      * Can be called multiple times safely - only initializes once.
+     *
+     * PHPUnit runs #[Before] hooks before setUp(), so lazy init has not run yet. Any #[Before] or
+     * #[After] method that touches the DB or ActiveRecord must call $this->_ensureInitialized() first.
      */
     protected function _ensureInitialized(): void
     {

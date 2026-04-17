@@ -51,6 +51,9 @@ abstract class OpenCartTest extends TestCase
     /**
      * Ensure the OpenCart environment is initialized.
      * Can be called multiple times safely - only initializes once.
+     *
+     * PHPUnit runs #[Before] hooks before setUp(), so lazy init has not run yet. Any #[Before] or
+     * #[After] method that touches the DB or ActiveRecord must call $this->_ensureInitialized() first.
      */
     protected function _ensureInitialized(): void
     {
@@ -160,7 +163,10 @@ abstract class OpenCartTest extends TestCase
 
     public function loadConfiguration()
     {
-        if (defined('HTTP_SERVER')) {
+        // Do not return on HTTP_SERVER alone: something may have defined it without loading
+        // config.catalog.php, leaving DB_PREFIX undefined and breaking namespaced ActiveRecord models
+        // that use \DB_PREFIX for $table_name (e.g. trx\model\, core\, multiseller\model\).
+        if (defined('HTTP_SERVER') && defined('DB_PREFIX')) {
             return;
         }
 

@@ -17,16 +17,23 @@ The development of custom extensions for OpenCart gets tedious at the point wher
 
 ### Steps to use
 * create a folder in the root of your OpenCart installation (e.g. tests/)
-* add a composer.json file wihtin the folder, and add the following:
+* add a composer.json file within the folder. Because this fork is not published to Packagist, add a VCS repository entry alongside the require:
 
-```javascript
+```json
 {
-	"require": {
-		"therecordxchange/opencart-test-suite": "0.2.1"
-	}
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/therecordxchange/trx-opencart-test-suite.git"
+        }
+    ],
+    "require-dev": {
+        "therecordxchange/opencart-test-suite": "^0.1"
+    }
 }
 ```
 * run `composer update` to download the necessary project dependencies
+* see [RELEASING.md](./RELEASING.md) for the tagging convention and the procedure for bumping consumers to a new release
 * create a UnitTest and extend it from OpenCartTest class, e.g.:
 
 ```php
